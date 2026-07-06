@@ -7,7 +7,9 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthForm } from "@/components/auth/AuthForm";
 import { useStudyPlan } from "@/lib/use-study-plan";
+import { useUser } from "@/lib/use-user";
 import { getSuggestedTasks } from "@/lib/suggested-tasks";
 import type { SubjectField, Task, TaskCategory } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -37,8 +39,10 @@ const STEP_LABELS = ["Subject", "Tasks", "Deadlines"];
 export default function OnboardingPage() {
   const router = useRouter();
   const { updatePlan } = useStudyPlan();
+  const { user } = useUser();
 
   const [step, setStep] = useState(0);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("signup");
   const [subject, setSubject] = useState<SubjectField | null>(null);
   const [checkedStandard, setCheckedStandard] = useState<Set<TaskCategory>>(new Set());
   const [checkedSuggested, setCheckedSuggested] = useState<Set<string>>(new Set());
@@ -105,7 +109,7 @@ export default function OnboardingPage() {
     setStep(2);
   }
 
-  function finish() {
+  function persistAndContinue() {
     const tasks: Task[] = draftTasks.map((d) => ({
       id: d.id,
       title: d.title,
@@ -119,6 +123,14 @@ export default function OnboardingPage() {
 
     updatePlan((prev) => ({ ...prev, subject, tasks }));
     router.push("/timetable");
+  }
+
+  function finish() {
+    if (!user) {
+      setStep(3);
+      return;
+    }
+    persistAndContinue();
   }
 
   const canContinueFromTasks =
@@ -295,6 +307,33 @@ export default function OnboardingPage() {
             <Button disabled={!canFinish} onClick={finish}>
               Next: Your Timetable
             </Button>
+          </div>
+        </Card>
+      )}
+
+      {step === 3 && (
+        <Card className="gap-6 p-6">
+          <div className="flex flex-col gap-1.5">
+            <h1 className="text-xl font-semibold">Save your plan</h1>
+            <p className="text-sm text-muted-foreground">
+              Your answers are ready — {authMode === "signup" ? "sign up" : "log in"} to save
+              them and build your schedule.
+            </p>
+          </div>
+
+          <AuthForm mode={authMode} onSuccess={persistAndContinue} />
+
+          <div className="flex items-center justify-between text-sm">
+            <Button type="button" variant="outline" onClick={() => setStep(2)}>
+              Back
+            </Button>
+            <button
+              type="button"
+              onClick={() => setAuthMode((m) => (m === "signup" ? "login" : "signup"))}
+              className="text-muted-foreground underline underline-offset-2"
+            >
+              {authMode === "signup" ? "Already have an account? Log in" : "Need an account? Sign up"}
+            </button>
           </div>
         </Card>
       )}

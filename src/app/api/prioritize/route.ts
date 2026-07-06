@@ -1,51 +1,58 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchStudyPlan } from "@/lib/study-plan-data";
 import { prioritizeTasks } from "@/lib/llm/prioritize";
-import { WEEKDAYS } from "@/lib/types";
-import type { Task, TimetableCommitment } from "@/lib/types";
-
-const taskSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  category: z.enum(["lecture", "coding-project", "problem-set", "other"]),
-  deadline: z.string(),
-  status: z.enum(["pending", "done"]),
-  source: z.enum(["user-added", "suggested"]),
-  priorityTier: z.enum(["critical", "high", "medium", "low"]).nullable(),
-  pinned: z.boolean(),
-});
-
-const commitmentSchema = z.object({
-  id: z.string(),
-  day: z.enum(WEEKDAYS),
-  startTime: z.string(),
-  endTime: z.string(),
-  label: z.string(),
-});
-
-const requestSchema = z.object({
-  tasks: z.array(taskSchema),
-  commitments: z.array(commitmentSchema),
-});
 
 /**
  * Re-runs the prioritization/scheduling step. Called from the client only when
  * tasks, deadlines, or the timetable change (see product doc trigger points) --
  * not on every page load.
+ *
+ * Authenticates the caller and re-reads their own tasks/commitments straight
+ * from Supabase -- it never trusts task/commitment data supplied in the
+ * request body, so a client can't get the model to reason over data it
+ * doesn't actually own.
  */
-export async function POST(request: Request) {
-  const body = await request.json();
-  const parsed = requestSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+export async function POST() {
+  const supabase = await getSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { tasks, commitments } = parsed.data;
+  const plan = await fetchStudyPlan(supabase, user.id);
 
   // Pinned tasks are manual overrides (open question #4): excluded from
-  // re-ranking, their existing tier is kept as-is by the caller.
-  const tasksToRank = tasks.filter((t) => t.status === "pending" && !t.pinned);
+  // re-ranking, their existing tier is kept as-is.
+  const tasksToRank = plan.tasks.filter((t) => t.status === "pending" && !t.pinned);
 
-  const result = await prioritizeTasks(tasksToRank as Task[], commitments as TimetableCommitment[]);
+  const result = await prioritizeTasks(tasksToRank, plan.commitments);
+
+  const writes: PromiseLike<unknown>[] = result.prioritizedTasks.map((p) =>
+    supabase.from("tasks").update({ priority_tier: p.priorityTier }).eq("id", p.id).eq("user_id", user.id)
+  );
+
+  writes.push(
+    (async () => {
+      await supabase.from("suggested_slots").delete().eq("user_id", user.id);
+      if (result.suggestedSlots.length > 0) {
+        await supabase.from("suggested_slots").insert(
+          result.suggestedSlots.map((s) => ({
+            user_id: user.id,
+            task_id: s.taskId,
+            day: s.day,
+            start_time: s.startTime,
+            end_time: s.endTime,
+          }))
+        );
+      }
+    })()
+  );
+
+  await Promise.all(writes);
+
   return NextResponse.json(result);
 }

@@ -1,13 +1,12 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import { isSupabaseConfigured } from "./config";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./config";
 
-/** Returns null until real Supabase env vars are set (see .env.example). */
+/** Always create a fresh client per request -- never share across requests. */
 export async function getSupabaseServerClient() {
-  if (!isSupabaseConfigured()) return null;
   const cookieStore = await cookies();
 
-  return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+  return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -18,8 +17,8 @@ export async function getSupabaseServerClient() {
             cookieStore.set(name, value, options);
           }
         } catch {
-          // Called from a Server Component without a response to write to; safe to ignore
-          // as long as a proxy/middleware refreshes the session (not set up in pre-MVP).
+          // Called from a Server Component without a response to write to;
+          // the proxy refreshes the session cookie on the next request instead.
         }
       },
     },
