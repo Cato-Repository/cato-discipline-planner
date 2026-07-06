@@ -4,8 +4,6 @@ import { useEffect, useMemo } from "react";
 import { StreakPanel } from "@/components/home/StreakPanel";
 import { TaskList } from "@/components/home/TaskList";
 import { WeeklySchedule } from "@/components/home/WeeklySchedule";
-import { Button } from "@/components/ui/button";
-import { signOutAction } from "@/lib/actions/auth";
 import { useStudyPlan } from "@/lib/use-study-plan";
 import { computeDisciplineScore } from "@/lib/discipline";
 import type { PriorityTier, SuggestedSlot, Task, TimetableCommitment } from "@/lib/types";
@@ -100,14 +98,6 @@ export function HomeClient() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 px-6 py-10">
-      <div className="flex justify-end">
-        <form action={signOutAction}>
-          <Button type="submit" variant="ghost" size="sm">
-            Sign out
-          </Button>
-        </form>
-      </div>
-
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr_320px]">
         <StreakPanel streakCount={plan.streakCount} disciplineScore={plan.disciplineScore} />
 
