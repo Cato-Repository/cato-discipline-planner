@@ -1,0 +1,23 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.1.0] - 2026-07-06
+
+### Added
+
+- Initial pre-MVP scaffold: Next.js 16 (App Router) + Tailwind v4 + shadcn/ui.
+- Landing page, onboarding wizard (subject → tasks → deadlines), click-drag
+  weekly timetable input, and a 3-column home page (streak, discipline score,
+  prioritized task list, color-coded weekly schedule).
+- `/api/prioritize` endpoint: deterministic urgency/free-slot pre-processing
+  plus a Vertex AI (Gemini) prioritization call via the Vercel AI SDK, with a
+  matching-shape mock fallback when credentials aren't configured.
+- Supabase schema (`supabase/migrations/0001_init.sql`) and client helpers
+  (not yet wired into the UI).
+- Client-side study plan persistence via `localStorage` (no auth yet).
