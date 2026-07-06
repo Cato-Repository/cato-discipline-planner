@@ -10,16 +10,33 @@ const MODEL_ID = process.env.VERTEX_MODEL_ID ?? "gemini-2.5-flash";
 function isVertexConfigured(): boolean {
   return Boolean(
     process.env.GOOGLE_VERTEX_PROJECT &&
-      (process.env.GOOGLE_VERTEX_API_KEY || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON)
+      (process.env.GOOGLE_VERTEX_API_KEY ||
+        process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON ||
+        (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY))
   );
 }
 
-function buildVertexModel() {
+function resolveCredentials(): Record<string, string> | undefined {
   const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+  if (credentialsJson) return JSON.parse(credentialsJson);
+
+  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY;
+  if (clientEmail && privateKey) {
+    // Service account keys are often stored with literal "\n" escapes in env
+    // vars (PEM requires real newlines).
+    return { client_email: clientEmail, private_key: privateKey.replace(/\\n/g, "\n") };
+  }
+
+  return undefined;
+}
+
+function buildVertexModel() {
+  const credentials = resolveCredentials();
   const vertex = createVertex({
     project: process.env.GOOGLE_VERTEX_PROJECT,
     location: process.env.GOOGLE_VERTEX_LOCATION ?? "us-central1",
-    ...(credentialsJson ? { googleAuthOptions: { credentials: JSON.parse(credentialsJson) } } : {}),
+    ...(credentials ? { googleAuthOptions: { credentials } } : {}),
   });
   return vertex(MODEL_ID);
 }
