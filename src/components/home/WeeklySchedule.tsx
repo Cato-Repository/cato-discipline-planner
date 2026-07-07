@@ -66,23 +66,23 @@ export function WeeklySchedule({ commitments, suggestedSlots, tasks }: WeeklySch
           Your suggested weekly schedule will show up here once your plan is built.
         </p>
       )}
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-3">
         {WEEKDAYS.map((day) => (
           <div key={day} className="flex flex-col gap-2">
-            <p className="text-center text-xs font-medium text-muted-foreground">{DAY_LABELS[day]}</p>
-            <div className="flex flex-col gap-1.5">
+            <p className="text-center text-sm font-medium text-muted-foreground">{DAY_LABELS[day]}</p>
+            <div className="flex flex-col gap-2">
               {blocksByDay[day]
                 .sort((a, b) => a.startTime.localeCompare(b.startTime))
                 .map((block, i) => (
                   <Card
                     key={i}
                     className={cn(
-                      "gap-0.5 border p-2 text-[11px] leading-tight",
+                      "gap-1 border p-2.5 text-xs leading-snug",
                       block.kind === "commitment" ? "bg-muted/60 text-muted-foreground" : block.colorClass
                     )}
                   >
-                    <span className="font-medium">{block.label}</span>
-                    <span className="text-[10px] opacity-80">
+                    <span className="font-medium break-words">{block.label}</span>
+                    <span className="text-[11px] opacity-80">
                       {block.startTime}–{block.endTime}
                     </span>
                   </Card>

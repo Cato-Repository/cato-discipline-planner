@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { StreakPanel } from "@/components/home/StreakPanel";
 import { TaskList } from "@/components/home/TaskList";
 import { WeeklySchedule } from "@/components/home/WeeklySchedule";
 import { useStudyPlan } from "@/lib/use-study-plan";
@@ -71,6 +70,41 @@ export function TasksClient() {
     }));
   }
 
+  function onAddTask(input: { title: string; deadline: string }) {
+    updatePlan((prev) => ({
+      ...prev,
+      tasks: [
+        ...prev.tasks,
+        {
+          id: crypto.randomUUID(),
+          title: input.title,
+          category: "other",
+          deadline: input.deadline,
+          status: "pending",
+          source: "user-added",
+          priorityTier: null,
+          pinned: false,
+        },
+      ],
+    }));
+  }
+
+  function onEditTask(taskId: string, input: { title: string; deadline: string }) {
+    updatePlan((prev) => ({
+      ...prev,
+      tasks: prev.tasks.map((t) =>
+        t.id === taskId ? { ...t, title: input.title, deadline: input.deadline } : t
+      ),
+    }));
+  }
+
+  function onDeleteTask(taskId: string) {
+    updatePlan((prev) => ({
+      ...prev,
+      tasks: prev.tasks.filter((t) => t.id !== taskId),
+    }));
+  }
+
   function onToggleStatus(taskId: string) {
     updatePlan((prev) => {
       const today = new Date().toISOString().slice(0, 10);
@@ -97,16 +131,21 @@ export function TasksClient() {
   if (!hydrated) return null;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 px-6 py-10">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr_320px]">
-        <StreakPanel streakCount={plan.streakCount} disciplineScore={plan.disciplineScore} />
-
+    <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-6 py-10">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[360px_1fr]">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h1 className="text-lg font-semibold">Your tasks</h1>
             {isPrioritizing && <span className="text-xs text-muted-foreground">Updating plan…</span>}
           </div>
-          <TaskList tasks={plan.tasks} onChangeTier={onChangeTier} onToggleStatus={onToggleStatus} />
+          <TaskList
+            tasks={plan.tasks}
+            onChangeTier={onChangeTier}
+            onToggleStatus={onToggleStatus}
+            onAddTask={onAddTask}
+            onEditTask={onEditTask}
+            onDeleteTask={onDeleteTask}
+          />
         </div>
 
         <div className="flex flex-col gap-4">
