@@ -22,7 +22,7 @@ function computeSignature(tasks: Task[], commitments: TimetableCommitment[]) {
   return `${rankable}::${commitmentSig}`;
 }
 
-export function HomeClient() {
+export function TasksClient() {
   const { plan, updatePlan, hydrated } = useStudyPlan();
 
   const signature = useMemo(

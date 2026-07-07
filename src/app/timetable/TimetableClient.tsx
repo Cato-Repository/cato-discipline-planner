@@ -46,7 +46,7 @@ export function TimetableClient() {
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={() => router.push("/home")}>Build my plan</Button>
+        <Button onClick={() => router.push("/tasks")}>Build my plan</Button>
       </div>
     </div>
   );

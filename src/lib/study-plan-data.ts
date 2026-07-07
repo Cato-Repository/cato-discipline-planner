@@ -147,6 +147,15 @@ function slotToRow(slot: SuggestedSlot, userId: string) {
   };
 }
 
+/** Whether this user has ever completed onboarding (has at least one task). */
+export async function hasStudyPlanData(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  const { count } = await supabase
+    .from("tasks")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  return (count ?? 0) > 0;
+}
+
 export async function fetchStudyPlan(supabase: SupabaseClient, userId: string): Promise<StudyPlan> {
   const [userResult, taskResult, commitmentResult, slotResult] = await Promise.all([
     supabase.from("users").select("subject, streak_count, discipline_score, last_active_date").eq("id", userId).single(),

@@ -3,19 +3,24 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthForm } from "@/components/auth/AuthForm";
+import { resolvePostAuthDestination } from "@/lib/post-auth-destination";
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/home";
+  const redirectParam = searchParams.get("redirect");
+
+  async function handleSuccess() {
+    router.push(await resolvePostAuthDestination(redirectParam));
+  }
 
   return (
     <div className="flex flex-col gap-6">
-      <AuthForm mode="login" onSuccess={() => router.push(redirectTo)} />
+      <AuthForm mode="login" onSuccess={handleSuccess} />
       <p className="text-center text-sm text-muted-foreground">
         Need an account?{" "}
         <Link
-          href={`/signup${redirectTo !== "/home" ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`}
+          href={`/signup${redirectParam ? `?redirect=${encodeURIComponent(redirectParam)}` : ""}`}
           className="underline underline-offset-2"
         >
           Sign up
