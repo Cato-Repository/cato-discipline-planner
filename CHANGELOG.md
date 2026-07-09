@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed the scheduling engine computing "today"/weekday/time-of-day using the
+  server's own clock (UTC, on Vercel) instead of the student's local
+  timezone, which could shift which real day a task's suggested slot (and a
+  fixed timetable commitment's displayed day) landed on for anyone not in
+  UTC -- e.g. a task's study session appearing to jump to a different
+  weekday after simply adding another task, since re-running the scheduler
+  re-derives "today" from scratch each time. The client now sends its own
+  timezone offset with each `/api/prioritize` call, and every date/weekday
+  derivation on the server goes through that offset consistently.
 - Fixed the scheduling engine having no concept of "today": free-slot
   computation and the mock prioritizer treated every weekday as equally
   available regardless of the current date, so a task could be suggested for

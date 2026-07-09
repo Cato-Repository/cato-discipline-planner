@@ -18,26 +18,42 @@ export interface TaskFeatures {
 
 export interface FreeSlot {
   day: Weekday;
-  /** ISO "YYYY-MM-DD" real calendar date of this slot's next occurrence from `now`. */
+  /** ISO "YYYY-MM-DD" real calendar date (in the student's local timezone) of this slot's next occurrence. */
   date: string;
-  startTime: string; // "HH:mm"
-  endTime: string; // "HH:mm"
+  startTime: string; // "HH:mm", local to the student
+  endTime: string; // "HH:mm", local to the student
   durationMinutes: number;
 }
 
-/** Monday=0 ... Sunday=6, matching WEEKDAYS order (JS Date#getDay is Sunday=0). */
-function todayIndex(now: Date): number {
-  return (now.getDay() + 6) % 7;
+/**
+ * This runs on the server (UTC on Vercel), but "today"/"this weekday"/"what
+ * time is it" are all inherently local-to-the-student concepts -- a student
+ * in UTC+8 whose local Thursday evening is still UTC-Thursday-morning on the
+ * server must still see Thursday, not Wednesday. `timezoneOffsetMinutes` is
+ * the student's own `Date#getTimezoneOffset()` (UTC minus local, in
+ * minutes), sent by the client alongside the request. Every date/time
+ * derivation below goes through this local-equivalent view via the UTC
+ * getters/setters (deliberately, so the *server's* own local timezone never
+ * leaks in), while epoch (`.getTime()`) comparisons stay untouched, since an
+ * absolute instant needs no timezone adjustment.
+ */
+function toLocalView(now: Date, timezoneOffsetMinutes: number): Date {
+  return new Date(now.getTime() - timezoneOffsetMinutes * 60_000);
 }
 
-/** Days from `now` until the next occurrence of `day` (0 if `day` is today). */
-function offsetToNextOccurrence(day: Weekday, now: Date): number {
-  return (WEEKDAYS.indexOf(day) - todayIndex(now) + 7) % 7;
+/** Monday=0 ... Sunday=6, matching WEEKDAYS order (JS Date#getUTCDay is Sunday=0). */
+function todayIndex(localView: Date): number {
+  return (localView.getUTCDay() + 6) % 7;
+}
+
+/** Days from `localView` until the next occurrence of `day` (0 if `day` is today). */
+function offsetToNextOccurrence(day: Weekday, localView: Date): number {
+  return (WEEKDAYS.indexOf(day) - todayIndex(localView) + 7) % 7;
 }
 
 function formatDate(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate()
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(
+    date.getUTCDate()
   ).padStart(2, "0")}`;
 }
 
@@ -82,18 +98,24 @@ export function extractTaskFeatures(tasks: Task[], now: Date = new Date()): Task
 
 /**
  * Computes open gaps per weekday, outside of existing fixed commitments.
- * Each weekday maps to its *next* real occurrence from `now` (today if it
- * hasn't passed yet this week, otherwise next week) -- so a weekday whose
- * slot already elapsed today, or earlier this week, is never offered.
+ * Each weekday maps to its *next* real occurrence from `now` in the
+ * student's own local timezone (today if it hasn't passed yet this week,
+ * otherwise next week) -- so a weekday whose slot already elapsed today, or
+ * earlier this week, is never offered.
  */
-export function computeFreeSlots(commitments: TimetableCommitment[], now: Date = new Date()): FreeSlot[] {
+export function computeFreeSlots(
+  commitments: TimetableCommitment[],
+  now: Date = new Date(),
+  timezoneOffsetMinutes = 0
+): FreeSlot[] {
   const freeSlots: FreeSlot[] = [];
+  const localView = toLocalView(now, timezoneOffsetMinutes);
 
   for (const day of WEEKDAYS) {
-    const offsetDays = offsetToNextOccurrence(day, now);
-    const occurrence = new Date(now);
-    occurrence.setHours(0, 0, 0, 0);
-    occurrence.setDate(occurrence.getDate() + offsetDays);
+    const offsetDays = offsetToNextOccurrence(day, localView);
+    const occurrence = new Date(localView);
+    occurrence.setUTCHours(0, 0, 0, 0);
+    occurrence.setUTCDate(occurrence.getUTCDate() + offsetDays);
     const date = formatDate(occurrence);
 
     const dayCommitments = commitments
@@ -104,7 +126,7 @@ export function computeFreeSlots(commitments: TimetableCommitment[], now: Date =
     let cursor = DAY_START_MINUTES;
     if (offsetDays === 0) {
       // Today: don't offer time that's already gone by.
-      cursor = Math.max(cursor, now.getHours() * 60 + now.getMinutes());
+      cursor = Math.max(cursor, localView.getUTCHours() * 60 + localView.getUTCMinutes());
     }
 
     for (const block of dayCommitments) {
@@ -138,4 +160,17 @@ export function computeFreeSlots(commitments: TimetableCommitment[], now: Date =
   }
 
   return freeSlots;
+}
+
+/**
+ * Real timestamp (ms) a free slot's start time falls on, given the same
+ * `timezoneOffsetMinutes` its `date`/`startTime` were computed in. Mirrors
+ * `toLocalView` in reverse: `date`+`startTime` are local wall-clock values,
+ * so we build them as UTC components and shift back by the offset to get a
+ * true, comparable epoch instant.
+ */
+export function slotStartInstant(slot: FreeSlot, timezoneOffsetMinutes = 0): number {
+  const [year, month, day] = slot.date.split("-").map(Number);
+  const [hours, minutes] = slot.startTime.split(":").map(Number);
+  return Date.UTC(year, month - 1, day, hours, minutes) + timezoneOffsetMinutes * 60_000;
 }

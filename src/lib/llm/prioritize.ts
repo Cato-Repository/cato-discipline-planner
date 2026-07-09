@@ -1,7 +1,13 @@
 import { generateObject } from "ai";
 import { createVertex } from "@ai-sdk/google-vertex";
 import { prioritizeResponseSchema, type PrioritizeResponse } from "./schema";
-import { computeFreeSlots, extractTaskFeatures, type FreeSlot, type TaskFeatures } from "./features";
+import {
+  computeFreeSlots,
+  extractTaskFeatures,
+  slotStartInstant,
+  type FreeSlot,
+  type TaskFeatures,
+} from "./features";
 import type { Task, TimetableCommitment } from "@/lib/types";
 
 const MODEL_ID = process.env.VERTEX_MODEL_ID ?? "gemini-2.5-flash";
@@ -61,10 +67,12 @@ function buildPrompt(features: TaskFeatures[], freeSlots: FreeSlot[]): string {
  */
 export async function prioritizeTasks(
   tasks: Task[],
-  commitments: TimetableCommitment[]
+  commitments: TimetableCommitment[],
+  timezoneOffsetMinutes = 0
 ): Promise<PrioritizeResponse> {
-  const features = extractTaskFeatures(tasks);
-  const freeSlots = computeFreeSlots(commitments);
+  const now = new Date();
+  const features = extractTaskFeatures(tasks, now);
+  const freeSlots = computeFreeSlots(commitments, now, timezoneOffsetMinutes);
 
   if (features.length === 0) {
     return { prioritizedTasks: [], suggestedSlots: [] };
@@ -86,17 +94,14 @@ export async function prioritizeTasks(
     }
   }
 
-  return mockPrioritize(features, freeSlots);
+  return mockPrioritize(features, freeSlots, timezoneOffsetMinutes);
 }
 
-/** Real timestamp (ms) a free slot's start time falls on, for comparing against a task's deadline. */
-function slotStartInstant(slot: FreeSlot): number {
-  const [year, month, day] = slot.date.split("-").map(Number);
-  const [hours, minutes] = slot.startTime.split(":").map(Number);
-  return new Date(year, month - 1, day, hours, minutes).getTime();
-}
-
-function mockPrioritize(features: TaskFeatures[], freeSlots: FreeSlot[]): PrioritizeResponse {
+function mockPrioritize(
+  features: TaskFeatures[],
+  freeSlots: FreeSlot[],
+  timezoneOffsetMinutes: number
+): PrioritizeResponse {
   const sorted = [...features].sort((a, b) => b.urgencyBaseline - a.urgencyBaseline);
 
   const tierForRank = (rank: number, total: number): PrioritizeResponse["prioritizedTasks"][number]["priorityTier"] => {
@@ -121,7 +126,7 @@ function mockPrioritize(features: TaskFeatures[], freeSlots: FreeSlot[]): Priori
   for (const task of sorted) {
     const deadlineInstant = new Date(task.deadline).getTime();
     const slotIndex = remainingSlots.findIndex(
-      (s) => s.durationMinutes >= 30 && slotStartInstant(s) <= deadlineInstant
+      (s) => s.durationMinutes >= 30 && slotStartInstant(s, timezoneOffsetMinutes) <= deadlineInstant
     );
     // No feasible slot before this task's deadline -- skip it, but keep
     // checking the rest (a less urgent task may have a further-out deadline

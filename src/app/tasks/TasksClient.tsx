@@ -39,8 +39,14 @@ export function TasksClient() {
 
     // The server authenticates the request and re-reads this user's own
     // tasks/commitments from Supabase -- it doesn't trust a client-supplied
-    // payload, so nothing needs to be sent in the body.
-    fetch("/api/prioritize", { method: "POST" })
+    // payload for those. The one thing it does need from us is our own
+    // timezone offset, since "today"/"this weekday" only make sense relative
+    // to the student's local clock, not the server's (UTC on Vercel).
+    fetch("/api/prioritize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ timezoneOffsetMinutes: new Date().getTimezoneOffset() }),
+    })
       .then((res) => res.json())
       .then((data: { prioritizedTasks: { id: string; priorityTier: PriorityTier }[]; suggestedSlots: SuggestedSlot[] }) => {
         if (cancelled) return;
