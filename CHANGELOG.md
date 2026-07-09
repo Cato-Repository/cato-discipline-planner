@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed the scheduling engine having no concept of "today": free-slot
+  computation and the mock prioritizer treated every weekday as equally
+  available regardless of the current date, so a task could be suggested for
+  a study slot on a day that had already passed this week (or after its own
+  deadline). Weekdays now resolve to their next real calendar occurrence from
+  now, past times today are excluded, and slot placement is checked against
+  each task's actual deadline. The "This week" grid also now shows each
+  column's real date and highlights today.
+
 ### Added
 
 - Add, edit, and delete controls for tasks on the `/tasks` page: an inline

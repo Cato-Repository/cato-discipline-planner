@@ -10,6 +10,7 @@ export interface TaskFeatures {
   title: string;
   category: Task["category"];
   source: Task["source"];
+  deadline: string; // ISO 8601, so slot placement can be checked against it
   hoursUntilDeadline: number;
   /** 0-100 rough urgency score, sooner deadline = higher. Not shown to the user. */
   urgencyBaseline: number;
@@ -17,9 +18,27 @@ export interface TaskFeatures {
 
 export interface FreeSlot {
   day: Weekday;
+  /** ISO "YYYY-MM-DD" real calendar date of this slot's next occurrence from `now`. */
+  date: string;
   startTime: string; // "HH:mm"
   endTime: string; // "HH:mm"
   durationMinutes: number;
+}
+
+/** Monday=0 ... Sunday=6, matching WEEKDAYS order (JS Date#getDay is Sunday=0). */
+function todayIndex(now: Date): number {
+  return (now.getDay() + 6) % 7;
+}
+
+/** Days from `now` until the next occurrence of `day` (0 if `day` is today). */
+function offsetToNextOccurrence(day: Weekday, now: Date): number {
+  return (WEEKDAYS.indexOf(day) - todayIndex(now) + 7) % 7;
+}
+
+function formatDate(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate()
+  ).padStart(2, "0")}`;
 }
 
 function timeToMinutes(time: string): number {
@@ -53,6 +72,7 @@ export function extractTaskFeatures(tasks: Task[], now: Date = new Date()): Task
       title: t.title,
       category: t.category,
       source: t.source,
+      deadline: t.deadline,
       hoursUntilDeadline: Math.round(
         (new Date(t.deadline).getTime() - now.getTime()) / (1000 * 60 * 60)
       ),
@@ -60,23 +80,40 @@ export function extractTaskFeatures(tasks: Task[], now: Date = new Date()): Task
     }));
 }
 
-/** Computes open gaps per weekday, outside of existing fixed commitments. */
-export function computeFreeSlots(commitments: TimetableCommitment[]): FreeSlot[] {
+/**
+ * Computes open gaps per weekday, outside of existing fixed commitments.
+ * Each weekday maps to its *next* real occurrence from `now` (today if it
+ * hasn't passed yet this week, otherwise next week) -- so a weekday whose
+ * slot already elapsed today, or earlier this week, is never offered.
+ */
+export function computeFreeSlots(commitments: TimetableCommitment[], now: Date = new Date()): FreeSlot[] {
   const freeSlots: FreeSlot[] = [];
 
   for (const day of WEEKDAYS) {
+    const offsetDays = offsetToNextOccurrence(day, now);
+    const occurrence = new Date(now);
+    occurrence.setHours(0, 0, 0, 0);
+    occurrence.setDate(occurrence.getDate() + offsetDays);
+    const date = formatDate(occurrence);
+
     const dayCommitments = commitments
       .filter((c) => c.day === day)
       .map((c) => ({ start: timeToMinutes(c.startTime), end: timeToMinutes(c.endTime) }))
       .sort((a, b) => a.start - b.start);
 
     let cursor = DAY_START_MINUTES;
+    if (offsetDays === 0) {
+      // Today: don't offer time that's already gone by.
+      cursor = Math.max(cursor, now.getHours() * 60 + now.getMinutes());
+    }
+
     for (const block of dayCommitments) {
       if (block.start > cursor) {
         const gap = block.start - cursor;
         if (gap >= MIN_FREE_SLOT_MINUTES) {
           freeSlots.push({
             day,
+            date,
             startTime: minutesToTime(cursor),
             endTime: minutesToTime(block.start),
             durationMinutes: gap,
@@ -91,6 +128,7 @@ export function computeFreeSlots(commitments: TimetableCommitment[]): FreeSlot[]
       if (gap >= MIN_FREE_SLOT_MINUTES) {
         freeSlots.push({
           day,
+          date,
           startTime: minutesToTime(cursor),
           endTime: minutesToTime(DAY_END_MINUTES),
           durationMinutes: gap,

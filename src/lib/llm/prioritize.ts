@@ -45,7 +45,7 @@ function buildPrompt(features: TaskFeatures[], freeSlots: FreeSlot[]): string {
   return [
     "You are the scheduling engine for a student discipline app.",
     "Assign each task a priority tier, and where a sensible free slot exists, a suggested placement.",
-    "Favor urgent, high-stakes tasks for 'critical'/'high'. Never suggest a slot shorter than the task realistically needs, and never suggest a slot outside the given free slots.",
+    "Favor urgent, high-stakes tasks for 'critical'/'high'. Never suggest a slot shorter than the task realistically needs, never suggest a slot outside the given free slots, and never place a task in a free slot whose date is after that task's deadline.",
     "",
     `Tasks (with a deterministic urgency baseline from 0-100 as a rough starting point, not the final answer):\n${JSON.stringify(features, null, 2)}`,
     "",
@@ -89,6 +89,13 @@ export async function prioritizeTasks(
   return mockPrioritize(features, freeSlots);
 }
 
+/** Real timestamp (ms) a free slot's start time falls on, for comparing against a task's deadline. */
+function slotStartInstant(slot: FreeSlot): number {
+  const [year, month, day] = slot.date.split("-").map(Number);
+  const [hours, minutes] = slot.startTime.split(":").map(Number);
+  return new Date(year, month - 1, day, hours, minutes).getTime();
+}
+
 function mockPrioritize(features: TaskFeatures[], freeSlots: FreeSlot[]): PrioritizeResponse {
   const sorted = [...features].sort((a, b) => b.urgencyBaseline - a.urgencyBaseline);
 
@@ -112,8 +119,14 @@ function mockPrioritize(features: TaskFeatures[], freeSlots: FreeSlot[]): Priori
     .map((s) => ({ ...s }));
 
   for (const task of sorted) {
-    const slotIndex = remainingSlots.findIndex((s) => s.durationMinutes >= 30);
-    if (slotIndex === -1) break;
+    const deadlineInstant = new Date(task.deadline).getTime();
+    const slotIndex = remainingSlots.findIndex(
+      (s) => s.durationMinutes >= 30 && slotStartInstant(s) <= deadlineInstant
+    );
+    // No feasible slot before this task's deadline -- skip it, but keep
+    // checking the rest (a less urgent task may have a further-out deadline
+    // that still fits).
+    if (slotIndex === -1) continue;
     const slot = remainingSlots[slotIndex];
     const blockMinutes = Math.min(60, slot.durationMinutes);
     const [h, m] = slot.startTime.split(":").map(Number);

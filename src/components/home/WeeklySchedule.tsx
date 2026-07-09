@@ -59,6 +59,9 @@ export function WeeklySchedule({ commitments, suggestedSlots, tasks }: WeeklySch
 
   const hasAnything = commitments.length > 0 || suggestedSlots.length > 0;
 
+  const now = new Date();
+  const todayIndex = (now.getDay() + 6) % 7; // WEEKDAYS is Mon-first; Date#getDay is Sun-first
+
   return (
     <div className="flex flex-col gap-3">
       {!hasAnything && (
@@ -67,29 +70,41 @@ export function WeeklySchedule({ commitments, suggestedSlots, tasks }: WeeklySch
         </p>
       )}
       <div className="grid grid-cols-7 gap-3">
-        {WEEKDAYS.map((day) => (
-          <div key={day} className="flex flex-col gap-2">
-            <p className="text-center text-sm font-medium text-muted-foreground">{DAY_LABELS[day]}</p>
-            <div className="flex flex-col gap-2">
-              {blocksByDay[day]
-                .sort((a, b) => a.startTime.localeCompare(b.startTime))
-                .map((block, i) => (
-                  <Card
-                    key={i}
-                    className={cn(
-                      "gap-1 border p-2.5 text-xs leading-snug",
-                      block.kind === "commitment" ? "bg-muted/60 text-muted-foreground" : block.colorClass
-                    )}
-                  >
-                    <span className="font-medium break-words">{block.label}</span>
-                    <span className="text-[11px] opacity-80">
-                      {block.startTime}–{block.endTime}
-                    </span>
-                  </Card>
-                ))}
+        {WEEKDAYS.map((day, i) => {
+          const offsetDays = (i - todayIndex + 7) % 7;
+          const isToday = offsetDays === 0;
+          const date = new Date(now);
+          date.setDate(now.getDate() + offsetDays);
+
+          return (
+            <div key={day} className={cn("flex flex-col gap-2 rounded-lg", isToday && "bg-muted/40 p-1.5 -m-1.5")}>
+              <p className={cn("text-center text-sm font-medium", isToday ? "text-foreground" : "text-muted-foreground")}>
+                {DAY_LABELS[day]}
+                <span className="block text-[11px] font-normal text-muted-foreground">
+                  {date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                </span>
+              </p>
+              <div className="flex flex-col gap-2">
+                {blocksByDay[day]
+                  .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                  .map((block, bi) => (
+                    <Card
+                      key={bi}
+                      className={cn(
+                        "gap-1 border p-2.5 text-xs leading-snug",
+                        block.kind === "commitment" ? "bg-muted/60 text-muted-foreground" : block.colorClass
+                      )}
+                    >
+                      <span className="font-medium break-words">{block.label}</span>
+                      <span className="text-[11px] opacity-80">
+                        {block.startTime}–{block.endTime}
+                      </span>
+                    </Card>
+                  ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
