@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CalendarClock, Flame, ListChecks, Sparkles } from "lucide-react";
+import { getCurrentUser } from "@/lib/get-current-user";
 
 const FEATURES = [
   {
@@ -29,7 +31,10 @@ const FEATURES = [
   },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const user = await getCurrentUser();
+  if (user) redirect("/tasks");
+
   return (
     <div className="flex flex-1 flex-col">
       <section className="flex flex-1 flex-col items-center justify-center gap-10 px-6 py-24 text-center">

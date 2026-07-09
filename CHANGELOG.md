@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Already-logged-in users hitting `/` are now redirected straight to
+  `/tasks` instead of seeing the marketing landing page.
+- The site header now shows a "Tasks" link for logged-in users (hidden while
+  already on `/tasks`) for quick navigation back to the app.
+
 ### Fixed
 
 - Fixed the scheduling engine having no concept of "today": free-slot

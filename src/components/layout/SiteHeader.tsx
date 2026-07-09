@@ -37,6 +37,11 @@ export function SiteHeader() {
         {!loading &&
           (user ? (
             <>
+              {pathname !== "/tasks" && (
+                <Button render={<Link href="/tasks" />} nativeButton={false} variant="ghost" size="sm">
+                  Tasks
+                </Button>
+              )}
               <span className="hidden text-sm text-muted-foreground sm:inline">{user.email}</span>
               <Button type="button" variant="ghost" size="sm" onClick={handleSignOut}>
                 Sign out
