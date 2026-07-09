@@ -7,14 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- Fixed the schedule's day columns rendering in a fixed Mon-first order
-  regardless of what day it actually is, which made the dates jump out of
-  chronological order the moment "today" wasn't a Monday (e.g. Mon 13, Tue
-  14, Wed 15, Thu 9, Fri 10...). Columns now always run chronologically
-  starting from today.
-
 ### Added
 
 - The "This week" schedule on `/tasks` now has Previous/Next week navigation,
@@ -23,14 +15,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sessions are still only ever shown for the current week, since they're
   only computed for it -- other weeks show commitments only, with a note
   explaining why.
-
 - Already-logged-in users hitting `/` are now redirected straight to
   `/tasks` instead of seeing the marketing landing page.
 - The site header now shows a "Tasks" link for logged-in users (hidden while
   already on `/tasks`) for quick navigation back to the app.
+- Add, edit, and delete controls for tasks on the `/tasks` page: an inline
+  "add a task" row, per-task edit (title + deadline) and delete buttons, plus
+  an "Unsorted" section for tasks awaiting AI prioritization.
+
+### Changed
+
+- Widened the weekly schedule column on `/tasks` (was squeezed into a fixed
+  320px sidebar) and gave its day cards more padding/font size for
+  readability.
 
 ### Fixed
 
+- Fixed the schedule's day columns rendering in a fixed Mon-first order
+  regardless of what day it actually is, which made the dates jump out of
+  chronological order the moment "today" wasn't a Monday (e.g. Mon 13, Tue
+  14, Wed 15, Thu 9, Fri 10...). Columns now always run chronologically
+  starting from today.
 - Fixed the scheduling engine computing "today"/weekday/time-of-day using the
   server's own clock (UTC, on Vercel) instead of the student's local
   timezone, which could shift which real day a task's suggested slot (and a
@@ -48,18 +53,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now, past times today are excluded, and slot placement is checked against
   each task's actual deadline. The "This week" grid also now shows each
   column's real date and highlights today.
-
-### Added
-
-- Add, edit, and delete controls for tasks on the `/tasks` page: an inline
-  "add a task" row, per-task edit (title + deadline) and delete buttons, plus
-  an "Unsorted" section for tasks awaiting AI prioritization.
-
-### Changed
-
-- Widened the weekly schedule column on `/tasks` (was squeezed into a fixed
-  320px sidebar) and gave its day cards more padding/font size for
-  readability.
 
 ### Removed
 
