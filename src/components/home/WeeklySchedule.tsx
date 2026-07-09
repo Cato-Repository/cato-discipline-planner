@@ -1,3 +1,8 @@
+"use client";
+
+import { useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   PRIORITY_TIER_COLORS,
@@ -19,6 +24,9 @@ const DAY_LABELS: Record<Weekday, string> = {
   sun: "Sun",
 };
 
+/** How many weeks back/forward navigation is allowed to go, either direction. */
+const MAX_WEEK_OFFSET = 8;
+
 interface WeeklyScheduleProps {
   commitments: TimetableCommitment[];
   suggestedSlots: SuggestedSlot[];
@@ -34,6 +42,7 @@ interface Block {
 }
 
 export function WeeklySchedule({ commitments, suggestedSlots, tasks }: WeeklyScheduleProps) {
+  const [weekOffset, setWeekOffset] = useState(0);
   const taskById = new Map(tasks.map((t) => [t.id, t]));
 
   const blocksByDay: Record<Weekday, Block[]> = Object.fromEntries(
@@ -44,37 +53,87 @@ export function WeeklySchedule({ commitments, suggestedSlots, tasks }: WeeklySch
     blocksByDay[c.day].push({ startTime: c.startTime, endTime: c.endTime, label: c.label, kind: "commitment" });
   }
 
-  for (const slot of suggestedSlots) {
-    const task = taskById.get(slot.taskId);
-    if (!task) continue;
-    const colors = task.priorityTier ? PRIORITY_TIER_COLORS[task.priorityTier] : undefined;
-    blocksByDay[slot.day].push({
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      label: task.title,
-      kind: "task",
-      colorClass: colors ? cn(colors.bg, colors.text, colors.border) : undefined,
-    });
+  // Suggested study sessions are only ever computed for the current week (see
+  // /api/prioritize) -- the "day" they're tagged with would be ambiguous
+  // (which week's Monday?) if we tried to project them onto another week, so
+  // they're only shown alongside the week they actually belong to.
+  const showSuggestions = weekOffset === 0;
+  if (showSuggestions) {
+    for (const slot of suggestedSlots) {
+      const task = taskById.get(slot.taskId);
+      if (!task) continue;
+      const colors = task.priorityTier ? PRIORITY_TIER_COLORS[task.priorityTier] : undefined;
+      blocksByDay[slot.day].push({
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        label: task.title,
+        kind: "task",
+        colorClass: colors ? cn(colors.bg, colors.text, colors.border) : undefined,
+      });
+    }
   }
 
-  const hasAnything = commitments.length > 0 || suggestedSlots.length > 0;
+  const hasAnything = commitments.length > 0 || (showSuggestions && suggestedSlots.length > 0);
 
   const now = new Date();
   const todayIndex = (now.getDay() + 6) % 7; // WEEKDAYS is Mon-first; Date#getDay is Sun-first
 
+  const weekDates = WEEKDAYS.map((_, i) => {
+    const offsetDays = (i - todayIndex + 7) % 7 + weekOffset * 7;
+    const date = new Date(now);
+    date.setDate(now.getDate() + offsetDays);
+    return date;
+  });
+  const rangeLabel = `${weekDates[0].toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${weekDates[6].toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+
   return (
     <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Previous week"
+          disabled={weekOffset <= -MAX_WEEK_OFFSET}
+          onClick={() => setWeekOffset((w) => w - 1)}
+        >
+          <ChevronLeft />
+        </Button>
+        <button
+          type="button"
+          onClick={() => setWeekOffset(0)}
+          className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+        >
+          {weekOffset === 0 ? "This week" : rangeLabel}
+        </button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Next week"
+          disabled={weekOffset >= MAX_WEEK_OFFSET}
+          onClick={() => setWeekOffset((w) => w + 1)}
+        >
+          <ChevronRight />
+        </Button>
+      </div>
+
       {!hasAnything && (
         <p className="text-sm text-muted-foreground">
-          Your suggested weekly schedule will show up here once your plan is built.
+          {weekOffset === 0
+            ? "Your suggested weekly schedule will show up here once your plan is built."
+            : "No fixed commitments for this week."}
+        </p>
+      )}
+      {commitments.length > 0 && !showSuggestions && (
+        <p className="text-xs text-muted-foreground">
+          Suggested study sessions are only planned for the current week.
         </p>
       )}
       <div className="grid grid-cols-7 gap-3">
         {WEEKDAYS.map((day, i) => {
-          const offsetDays = (i - todayIndex + 7) % 7;
-          const isToday = offsetDays === 0;
-          const date = new Date(now);
-          date.setDate(now.getDate() + offsetDays);
+          const date = weekDates[i];
+          const isToday = weekOffset === 0 && i === todayIndex;
 
           return (
             <div key={day} className={cn("flex flex-col gap-2 rounded-lg", isToday && "bg-muted/40 p-1.5 -m-1.5")}>

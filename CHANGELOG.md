@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The "This week" schedule on `/tasks` now has Previous/Next week navigation,
+  so fixed timetable commitments can be reviewed for past and future weeks
+  (click the date range to jump back to the current week). Suggested study
+  sessions are still only ever shown for the current week, since they're
+  only computed for it -- other weeks show commitments only, with a note
+  explaining why.
+
 - Already-logged-in users hitting `/` are now redirected straight to
   `/tasks` instead of seeing the marketing landing page.
 - The site header now shows a "Tasks" link for logged-in users (hidden while
