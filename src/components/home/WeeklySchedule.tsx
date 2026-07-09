@@ -78,8 +78,13 @@ export function WeeklySchedule({ commitments, suggestedSlots, tasks }: WeeklySch
   const now = new Date();
   const todayIndex = (now.getDay() + 6) % 7; // WEEKDAYS is Mon-first; Date#getDay is Sun-first
 
-  const weekDates = WEEKDAYS.map((_, i) => {
-    const offsetDays = (i - todayIndex + 7) % 7 + weekOffset * 7;
+  // Columns run in actual chronological order starting from today (not a
+  // fixed Mon-first order) -- this is a rolling 7-day window, not a calendar
+  // week, so "Mon, Tue, Wed, Thu(today), Fri..." would show dates out of
+  // order (e.g. 13, 14, 15, 9, 10...) the moment today isn't a Monday.
+  const orderedDays = Array.from({ length: 7 }, (_, col) => WEEKDAYS[(todayIndex + col) % 7]);
+  const weekDates = orderedDays.map((_, col) => {
+    const offsetDays = col + weekOffset * 7;
     const date = new Date(now);
     date.setDate(now.getDate() + offsetDays);
     return date;
@@ -131,9 +136,9 @@ export function WeeklySchedule({ commitments, suggestedSlots, tasks }: WeeklySch
         </p>
       )}
       <div className="grid grid-cols-7 gap-3">
-        {WEEKDAYS.map((day, i) => {
-          const date = weekDates[i];
-          const isToday = weekOffset === 0 && i === todayIndex;
+        {orderedDays.map((day, col) => {
+          const date = weekDates[col];
+          const isToday = weekOffset === 0 && col === 0;
 
           return (
             <div key={day} className={cn("flex flex-col gap-2 rounded-lg", isToday && "bg-muted/40 p-1.5 -m-1.5")}>

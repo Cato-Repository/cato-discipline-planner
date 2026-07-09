@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed the schedule's day columns rendering in a fixed Mon-first order
+  regardless of what day it actually is, which made the dates jump out of
+  chronological order the moment "today" wasn't a Monday (e.g. Mon 13, Tue
+  14, Wed 15, Thu 9, Fri 10...). Columns now always run chronologically
+  starting from today.
+
 ### Added
 
 - The "This week" schedule on `/tasks` now has Previous/Next week navigation,
